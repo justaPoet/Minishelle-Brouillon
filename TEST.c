@@ -31,19 +31,30 @@ typedef struct				s_env
 
 typedef struct s_data
 {
-    // char        **v_env;
     t_env       *envp;
-	char        *username;
 }					t_data;
 
-struct				s_token
-{
-	char			*value;
-	int				type;
-	struct s_token	*next;
-	struct s_token	*prev;
+// struct				s_token
+// {
+// 	char			*value;
+// 	int				type;
+// 	struct s_token	*next;
+// 	struct s_token	*prev;
 
-}					t_token;
+// }					t_token;
+
+char	*ft_strchr(const char *string, int searchedChar)
+{
+	int	i;
+
+	i = -1;
+	while (string[++i])
+		if (string[i] == (unsigned char)searchedChar)
+			return ((char *)&string[i]);
+	if (string[i] == (unsigned char)searchedChar)
+		return ((char *)&string[i]);
+	return (NULL);
+}
 
 static void	ft_init_vars(size_t *i, size_t *j, int *start)
 {
@@ -273,16 +284,16 @@ t_env	*find_last_node(t_env *node)
 	return (node);
 }
 
-void append_node_envp(t_env **envp, char *line)
+int append_node_envp(t_env **envp, char *line)
 {
     t_env *new_node;
     t_env *last_node;
 
     if (!envp)
-        return;
+        return (ERROR);
     new_node = malloc(sizeof(t_env));
     if (!new_node)
-        return;
+        return (ERROR);
     new_node->next = NULL;
     new_node->line = line;
     if (*envp == NULL)
@@ -296,14 +307,36 @@ void append_node_envp(t_env **envp, char *line)
         last_node->next = new_node;
         new_node->prev = last_node;
     }
-    // printf("APPENDED=%s\n\n", line);
+    return (SUCCESS);
+}
+
+//! AFFICHE LE OLDPWD NON INITIALISEE AVEC EXPORT MAIS PAS ENV : BIEN ? PAS BIEN ?
+// a changer fn append 
+int make_env_if_le_correcteur_clc(t_data* data)
+{
+	char	path[PATH_MAX];
+	char	*tmp;
+    
+    tmp = ft_strdup("OLDPWD");
+    if (!tmp || append_node_envp(&data->envp, tmp) == ERROR || getcwd(path, PATH_MAX) == NULL)
+        return (ERROR); 
+    tmp = ft_strjoin("PWD=", path);
+    if (!tmp || append_node_envp(&data->envp, tmp) == ERROR)
+        return (ERROR); 
+    return (SUCCESS);
 }
 
 void make_env(t_data *data, char **env)
 {
-    int i = 0;
+    int i;
     
+    i = 0;
     data->envp = NULL;
+    if (!(*env))
+    {
+        make_env_if_le_correcteur_clc(data);
+        return ;
+    }
     while (env[i])
     {
         append_node_envp(&data->envp, env[i]);
@@ -323,7 +356,8 @@ int ft_env()
     tmp = data->envp;
     while(tmp != NULL)
     {
-        printf("%s\n", tmp->line);
+        if (ft_strchr(tmp->line, '=')) //! NUANCE RAJOUTEE DEPUIS NEW MAKE_ENV() : BIEN ? PAS BIEN ?
+            printf("%s\n", tmp->line);
         tmp = tmp->next;
     }
     return (SUCCESS);
@@ -541,21 +575,26 @@ int count_envp_node(t_env *envp)
 void	del_node_t_env(t_env **envp)
 {
 	t_env	*del_node;
-	t_env	*new_first;
+	t_env	*new_next;
 
 	if (envp == NULL || *envp == NULL)
 		return ;
 	del_node = *envp;
-	new_first = del_node->next;
-	if (new_first)
-		new_first->prev = NULL;
-	*envp = new_first;
+	new_next = del_node->next;
+	if (new_next)
+		new_next->prev = del_node->prev;
+
+	if (del_node->prev)
+		del_node->prev->next = new_next;
+
+	*envp = new_next;
 	del_node->next = NULL;
 	del_node->prev = NULL;
 	free(del_node);
 }
 
-void	destroy_env(t_env **env)
+
+void	maki_zenin(t_env **env)
 {
 	if (env == NULL || *env == NULL)
 		return ;
@@ -593,10 +632,7 @@ char	*join_var_and_val(char const *s1, char const *s2)
 	return (str);
 }
 
-// premiere lettre du NOM != 0-9
-// pas de caracteres speciaux dans la variable
-// ne prendre en compte que le premier arg comme la valeur de la nouvelle variable d'env
-//! prevoir un cas pour les doublons 
+//! prevoir un cas pour les doublons ==> remplace la valeur
 int export_new_var_envp(t_env *envp, char *argument)
 {
     int i;
@@ -610,7 +646,7 @@ int export_new_var_envp(t_env *envp, char *argument)
     if (isdigit(res[0][0]))
     {
         printf("Error: export: %s: not a valid identifier\n", res[0]);
-        ft_free_tabtab(res); //!
+        ft_free_tabtab(res);
         return (ERROR);
     }
     while (res[0][j])
@@ -627,13 +663,12 @@ int export_new_var_envp(t_env *envp, char *argument)
         i = 0;
         j++;
     }
-    char *to_print = join_var_and_val(res[0], res[1]); //! strjoin trafique avec '='
-    append_node_envp(&envp, to_print); // pbl si je passe line(=tmp) jsp pk
+    char *to_print = join_var_and_val(res[0], res[1]); //! strjoin+=
+    append_node_envp(&envp, to_print);
     ft_free_tabtab(res);
-    // free(to_print);
 }
 
-//! cas si envp est supp (// env -i)
+//! cas si envp est supp (//env -i)
 int ft_export(t_env *envp, char *tmp)
 {
     int i;
@@ -641,7 +676,6 @@ int ft_export(t_env *envp, char *tmp)
     i = 0;
     if (!envp)
         return (FAILURE);
-
     if (ft_strcmp(tmp, "export") == 0) // export (no args)
     {
         int count = count_envp_node(envp);
@@ -702,18 +736,65 @@ int ft_export(t_env *envp, char *tmp)
 //     }
 // }
 
+int unset_search_var(char *var)
+{
+    int len;
+    char *value;
+    t_env *tmp;
+    t_data *data;
+
+    data = get_data();
+	if (data->envp == NULL || var == NULL)
+		return (FAILURE);
+    len = ft_strlen(var);
+    tmp = data->envp;
+    while (tmp != NULL)
+    {
+        if (ft_strncmp(var, tmp->line, len) == 0)
+        {
+            del_node_t_env(&tmp);
+            return (SUCCESS);
+        }
+        tmp = tmp->next;
+    }
+    return (ERROR);
+}
+
+//! ====POSSIBLE CAS ERREUR====
+//! - SI on veut supp une var importante comme (ex : PATH, SHELL...)
+//! - SI variable introuvable ==> RIEN + RETURN
+int ft_unset(char *argument)
+{
+    int res;
+
+    res = 0;
+    // SI pas d'argument ==> RIEN + RETURN
+    printf("ft_unset :\n\n");
+    if (ft_strcmp(argument, "") == 0 || !argument)
+        return (ERROR);
+    else // SI argument
+    {
+        res = unset_search_var(argument);
+        if (res == SUCCESS)
+            return (SUCCESS);
+        if (res == ERROR)
+        {
+            printf("Unset : var not found\n");
+            return (ERROR);
+        }
+        if (res == FAILURE)
+        {
+            printf("Error malloc\n"); //!!!
+            return (FAILURE);
+        }
+    }
+}
+
 int	main(int ac, char **av, char **env)
 {
 	char *line;
     t_data *data = get_data(); 
-    data->username = getenv("USER");
-
-    
     make_env(data, env);
-
-    // char *audd = search_env_var(av[1]);
-    // printf("%s\n", audd);
-    // free(audd);
 
 	while (1)
 	{
@@ -724,10 +805,10 @@ int	main(int ac, char **av, char **env)
             break ;
         else if (ft_strcmp(line, "env") == 0)
             ft_env();
-        // else
-        //     change_cd(line);
-        else /*if (ft_strcmp(line, "export") == 0)*/
-            ft_export(data->envp, line);
+        else
+            ft_unset(line);
+        // else /*if (ft_strcmp(line, "export") == 0)*/
+        //     ft_export(data->envp, line);
         // else 
         //     ft_echo(line);
         add_history(line); // OKOK
@@ -737,15 +818,9 @@ int	main(int ac, char **av, char **env)
     if (line != NULL)
         free(line);
     rl_clear_history(); // OKOK
-    destroy_env(&data->envp);
+    maki_zenin(&data->envp);
     return (0);
 }
-
-//? Faire une fonction "compil_args()" qui va relier les token allant ensemble dans un char** "cmd_args"...
-//? ...pour faciliter l'execution de chaque cmd
-//? Prendre en compte le '$' dans certains cas (//echo)
-
-
 
 
 

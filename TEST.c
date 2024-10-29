@@ -454,12 +454,12 @@ void print_line_export(char *line)
     printf("\n");
 }
 
-void	ft_free_tabtab(char **tabtab, int count)
+void	ft_free_tabtab(char **tabtab)
 {
 	int	i;
 
 	i = 0;
-	while (i < count)
+	while (tabtab[i])
     {
 		free(tabtab[i]);
         i++;
@@ -511,7 +511,7 @@ char **copy_envp_to_tab(t_env *envp, int count)
         env_tab[i] = strdup(tmp->line);
         if (!env_tab[i])
         {
-            ft_free_tabtab(env_tab, i);
+            ft_free_tabtab(env_tab);
             return (NULL);
         }
         tmp = tmp->next;
@@ -563,6 +563,36 @@ void	destroy_env(t_env **env)
 		del_node_t_env(env);
 }
 
+char	*join_var_and_val(char const *s1, char const *s2)
+{
+	char	*str;
+	int		i;
+	int		j;
+
+	i = 0;
+	j = 0;
+	if (s1 == NULL || s2 == NULL)
+		return (NULL);
+	str = (char *)malloc(ft_strlen(s1) + ft_strlen(s2) + 2); //? 1 pour '=' 1 pour '\0'
+	if (!str)
+		return (NULL);
+	while (s1[i])
+	{
+		str[i] = s1[i];
+		i++;
+	}
+    str[i] = '=';
+    i++;
+	while (s2[j])
+	{
+		str[i] = s2[j];
+		i++;
+		j++;
+	}
+	str[i] = 0;
+	return (str);
+}
+
 // premiere lettre du NOM != 0-9
 // pas de caracteres speciaux dans la variable
 // ne prendre en compte que le premier arg comme la valeur de la nouvelle variable d'env
@@ -580,7 +610,7 @@ int export_new_var_envp(t_env *envp, char *argument)
     if (isdigit(res[0][0]))
     {
         printf("Error: export: %s: not a valid identifier\n", res[0]);
-        //ft_free_tabtab(res);
+        ft_free_tabtab(res); //!
         return (ERROR);
     }
     while (res[0][j])
@@ -597,17 +627,10 @@ int export_new_var_envp(t_env *envp, char *argument)
         i = 0;
         j++;
     }
-    // printf("will-append=%s\n", argument);
-    // rajouter verif valeur de la var avant append
-
-
-    char *to_print = "AUDD=test" ; //! strjoin trafique qui ajoute un = entre les deux mots !!!!!!
-
-//+ 09/10/2024
-
+    char *to_print = join_var_and_val(res[0], res[1]); //! strjoin trafique avec '='
     append_node_envp(&envp, to_print); // pbl si je passe line(=tmp) jsp pk
-    
-    ft_free_tabtab(res, 2);
+    ft_free_tabtab(res);
+    // free(to_print);
 }
 
 //! cas si envp est supp (// env -i)
@@ -618,12 +641,13 @@ int ft_export(t_env *envp, char *tmp)
     i = 0;
     if (!envp)
         return (FAILURE);
+
     if (ft_strcmp(tmp, "export") == 0) // export (no args)
     {
         int count = count_envp_node(envp);
         char **tab_envp = copy_envp_to_tab(envp, count);
         sort_envp_and_print(tab_envp, count);
-        ft_free_tabtab(tab_envp, count);
+        ft_free_tabtab(tab_envp);
         return (SUCCESS);
     }
     else // export with args

@@ -6,7 +6,7 @@
 /*   By: apoet <apoet@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/02 18:43:47 by obouayed          #+#    #+#             */
-/*   Updated: 2024/12/16 15:51:54 by apoet            ###   ########.fr       */
+/*   Updated: 2024/12/16 20:19:20 by apoet            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -47,7 +47,7 @@ char **init_cmd_param(t_token *og_token)
         return (NULL);
     cmd_param = malloc(sizeof(char *) * (i + 1));
     if (!cmd_param)
-        return (print_error(ERR_MALLOC), NULL); //! cleanup ERR_MALLOC
+        return (NULL); //! cleanup ERR_MALLOC
     cmd_param[i] = NULL;
     i = 0;
     while (token && token->type != PIPE)
@@ -63,7 +63,7 @@ char **init_cmd_param(t_token *og_token)
         {            
             cmd_param[i] = ft_strdup(token->value);
             if (!cmd_param[i])
-                return (print_error(ERR_MALLOC), NULL); //! cleanup ERR_MALLOC
+                return (NULL); //! cleanup ERR_MALLOC
             i++;
             token = token->next;
         }
@@ -98,28 +98,40 @@ void close_null_sq()
     }
 }
 
-
-
-bool verif_before_init_cmd_param()
+int verif_before_init_cmd_param(t_token *token, t_cmd *cmd)
 {
-
-    if (token->type == CMD)
+    if (token->type != CMD && token->type != ARG)
+        return (ERROR);
+    if (token->type == CMD && cmd->cmd_param)
+        return (ERROR);
+    if (token->type == ARG)
     {
-        
+        if (token->prev && (token->prev->type >= 1 && token->prev->type <= 4))
+            return (ERROR);
+        if (cmd->cmd_param)
+            return (ERROR);   
     }
-
-
-    
-    printf("OKAY OKAY == %s \n", token->value);
-            if (check_command_in_path(token->value) == ERROR && is_builtin(token->value) == false)
-                return(print_error("AUDDminishell: "), print_error(token->value), cleanup(1, ": command not found\n", NO_EXIT, 2), ERROR); //! 
+    if (check_command_in_path(token->value) == ERROR && is_builtin(token->value) == false && access(token->value, X_OK) != 0)
+        return(print_error("minishell: "), print_error(token->value), print_error(": command not found\n"), FAILURE); //! quitte et stop le while de token 
+    return (SUCCESS);
 }
+
+//! FAIRE UNE FN SPECIALE AVEC TOUS LES CAS SPECIAUX 
+//* "< infile < infile" ==> OKOK
+//* "< infile cat < infile -e" ==> OKOK
+//* "< infile iwqej < infile" ==> "command not found"
+//* "< infile < infile iwqej" ==> "command not found"
+//* "< infile cat < infile ls" ==> "ls: No such file or directory"
+//* "< infile wedjkfbn < hjbfjnwef" ==> "hjbfjnwef: No such file or directory"
+//* "<< o << p"
+//* "<< o << p cat -e"
 
 //*OKOK
 //? Remplit chaque noeud de cmd avec les bonnes redirections et
 //? initialise cmd_param, si besoin.
 int fill_cmd_nodes(t_data *data)
 {
+    int new_cmd;
     t_cmd *cmd;
     t_token *token;
 
@@ -128,35 +140,23 @@ int fill_cmd_nodes(t_data *data)
     while (token && cmd)
     {
         if ((token->type >= 1 && token->type <= 4) && token->next && token->next->type == ARG)
-        {   
-            if (fill_cmd_nodes_redirections(cmd, &token) == ERROR)
-                return(ERROR);
-        }  
+            if (fill_cmd_nodes_redirections(cmd, &token) == ERROR) //if (fill_cmd_nodes_redirections(cmd, &token) == ERROR)
+                return(ERROR); 
         if (token->type == PIPE)
             cmd = cmd->next;
-        if (token->type == CMD || token->type == ARG)
-        {   
-            // if (token->type == CMD)
-            //     if ()
-			
-            if (verif_before_init_cmd_param() == true)
-            {    
-                cmd->cmd_param = init_cmd_param(token);
-                if (!cmd->cmd_param)
-                    return (ERROR); //besoin de free les precedents noeud si deja init
-            }
+        new_cmd = verif_before_init_cmd_param(token, cmd);
+        if (new_cmd == SUCCESS)
+        {    
+            cmd->cmd_param = init_cmd_param(token);
+            if (!cmd->cmd_param)
+                return (ERROR); //! cleanup ERR_MALLOC
         }
+        if (new_cmd == FAILURE)
+            return (close_null_sq(), cleanup(1, NULL, NO_EXIT, 2), ERROR);
     	token = token->next;
     }
-    close_null_sq();
-    return (SUCCESS);
+    return (close_null_sq(), SUCCESS);
 }
-
-//! FAIRE UNE FN SPECIALE AVEC TOUS LES CAS SPECIAUX 
-//! "< infile < infile"
-//! "< infile cat < infile -e"
-//! "< infile iwqej < infile"
-//! "< infile < infile iwqej"
 
 //*OKOK
 //? Initialise les nœuds de commandes 
@@ -175,7 +175,7 @@ int init_cmd_nodes(t_data *data)
         cmd = malloc(sizeof(t_cmd));
         if (!cmd)
             return (cleanup(ERROR, ERR_MALLOC, ERROR, 2));
-        cmd->infile= -2;
+        cmd->infile = -2;
         cmd->outfile = -2;
         cmd->cmd_param = NULL;
         cmd->next = NULL;
@@ -190,8 +190,32 @@ int init_cmd_nodes(t_data *data)
     return (SUCCESS);
 }
 
+int check_access_redirections(t_data *data)
+{
+    t_token *token;
+
+    token = data->token;
+    while (token)
+    {
+        if (token->type == INPUT || token->type == TRUNC || token->type == APPEND)
+        {
+            if (token->next && token->next->type == ARG)
+            {
+                if (access(token->next->value, F_OK) != 0)
+                    return(print_error("minishell: "), print_error(token->next->value), cleanup(1, ": No such file or directory\n", NO_EXIT, 2), ERROR);
+            }
+            else    
+                return(ERROR); 
+        }
+    	token = token->next;
+    }
+    return (SUCCESS);
+}
+
 int init_cmd(t_data *data)
 {
+    if (check_access_redirections(data) == ERROR)
+        return (ERROR);
     if (init_cmd_nodes(data) == ERROR)
         return (ERROR); 
     if (fill_cmd_nodes(data) == ERROR)
@@ -216,7 +240,6 @@ int init_cmd(t_data *data)
     return (SUCCESS);
 }
 
-//! "< infile < infile wejinfkejnf" ==> "command not found"
 
 
 

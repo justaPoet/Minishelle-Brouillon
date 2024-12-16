@@ -111,13 +111,13 @@ int	exec(t_data *data)
 
 	if (tmp->skip_cmd == false && tmp->cmd_param && tmp->cmd_param[0] && is_builtin(tmp->cmd_param[0]) && cmd_list_len(data->cmd) == 1) //verif tmp->cmd_param pour "<< LIMITER"
 	{
-		printf("=======OKOK-launch-builtin=======\n");
+		printf("=======launch-builtin=======\n");
 		launch_builtin(tmp);
 		if (data->exit_status != SUCCESS)
 			return (cleanup(NO_CHANGE, NULL, NO_EXIT, 2));
 		return (SUCCESS);
 	}
-	printf("=======no-launch-builtin=======\n");
+	printf("=======pipex=======\n");
 	while (tmp)
 	{
 		if (pipe(pip) == -1)

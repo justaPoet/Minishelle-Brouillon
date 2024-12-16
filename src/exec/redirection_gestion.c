@@ -6,7 +6,7 @@
 /*   By: apoet <apoet@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/04 17:34:17 by febouana          #+#    #+#             */
-/*   Updated: 2024/12/15 04:09:30 by apoet            ###   ########.fr       */
+/*   Updated: 2024/12/16 20:08:26 by apoet            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -68,38 +68,65 @@ int	init_file(t_cmd *cmd, char *filename, int type)
 // 	return (SUCCESS);
 // }
 
+bool is_valid_cmd(char *cmd)
+{
+	if (check_command_in_path(cmd) == SUCCESS || is_builtin(cmd) == true || access(cmd, X_OK) == 0)
+		return (true);
+	return (false);
+}
+
 int	fill_cmd_nodes_redirections(t_cmd *cmd, t_token **real_token)
 {
 	bool is_pipe;
-	int is_access;
 	
 	is_pipe = false;
-	if ((*real_token)->type == HEREDOC && (*real_token)->next->type == ARG)
-		if (heredoc(cmd, (*real_token)->next->value) != SUCCESS)
-			return (ERROR);
-	if ((*real_token)->type == INPUT || (*real_token)->type == TRUNC || (*real_token)->type >= APPEND)
+	while ((*real_token)->type >= 1 && (*real_token)->type <= 4)
 	{
-		is_access = access((*real_token)->next->value, F_OK);
-		if (is_access == 0)
-		{
+		if ((*real_token)->type == HEREDOC)
+			if (heredoc(cmd, (*real_token)->next->value) != SUCCESS)
+				return (ERROR);
+		if ((*real_token)->type == INPUT || (*real_token)->type == TRUNC || (*real_token)->type >= APPEND)
 			if (init_file(cmd, (*real_token)->next->value, (*real_token)->type) != SUCCESS)
 				return (ERROR);
+		if ((*real_token)->prev && (*real_token)->prev->type == PIPE)
+			is_pipe = true;
+		if ((*real_token)->next->next) // MON PRECIEUX
+		{
+			(*real_token) = (*real_token)->next->next;
+			if ((!cmd->prev || is_pipe == true) && (*real_token)->type == ARG && is_valid_cmd((*real_token)->value) == true)
+				(*real_token)->type = CMD; 
 		}
 		else
-			return(print_error("SIUminishell: "), print_error((*real_token)->next->value), cleanup(1, ": No such file or directory\n", NO_EXIT, 2));
+			return (SUCCESS);
 	}
-	if ((*real_token)->prev && (*real_token)->prev->type == PIPE)
-		is_pipe = true;
-	printf("1VERIF-IN==%s | %d\n\n", (*real_token)->value, (*real_token)->type);
-	if ((*real_token)->next->next) // MON PRECIEUX
-		(*real_token) = (*real_token)->next->next;
-	printf("2VERIF-IN==%s | %d\n\n", (*real_token)->value, (*real_token)->type);
-	if ((!cmd->prev || is_pipe == true) && (*real_token)->type == ARG && (check_command_in_path((*real_token)->value) == SUCCESS || is_builtin((*real_token)->value) == true))
-		(*real_token)->type = CMD;  
-	// else if (!(*real_token)->next && !cmd->cmd_param && (*real_token)->type == ARG) 
-	// 	return(print_error("SIUminishell: "), print_error((*real_token)->value), cleanup(1, ": command not found\n", NO_EXIT, 2)); 
-	return (SUCCESS);
+	return (SUCCESS); // ne rentrera jamais ici
 }
+
+// int	fill_cmd_nodes_redirections(t_cmd *cmd, t_token *token, t_token **real_token)
+// {
+// 	bool is_pipe;
+	
+// 	is_pipe = false;
+// 	if (token->type == HEREDOC)
+// 		if (heredoc(cmd, token->next->value) != SUCCESS)
+// 			return (ERROR);
+// 	if (token->type == INPUT || token->type == TRUNC || token->type >= APPEND)
+// 		if (init_file(cmd, token->next->value, token->type) != SUCCESS)
+// 			return (ERROR);
+			
+// 	if (token->prev && token->prev->type == PIPE)
+// 		is_pipe = true;
+	
+	
+// 	if (real_token && (*real_token)->type == ARG)
+// 		if ((!cmd->prev || is_pipe == true) && (check_command_in_path((*real_token)->value) == SUCCESS || is_builtin((*real_token)->value) == true || access((*real_token)->value, X_OK) == 0))
+// 			(*real_token)->type = CMD;  
+
+	
+// 	// else if (!(*real_token)->next && !cmd->cmd_param && (*real_token)->type == ARG) 
+// 	// 	return(print_error("SIUminishell: "), print_error((*real_token)->value), cleanup(1, ": command not found\n", NO_EXIT, 2)); 
+// 	return (SUCCESS);
+// }
 
 int	close_all_redi(t_data *data)
 {

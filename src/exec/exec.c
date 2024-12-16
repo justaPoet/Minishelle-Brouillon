@@ -84,14 +84,13 @@ int	exec_cmd(t_data *data, t_cmd *cmd, int *pip)
 	env = copy_envp_to_tab(data, data->envp);
 	if (!env)
 		return (cleanup(ERROR, ERR_MALLOC, ERROR, 2));
-	cmd->f_pid = fork();
-	if (cmd->f_pid == 0)
+	data->current_pid = fork();
+	if (data->current_pid == 0)
 	{
 		if (cmd->cmd_param && cmd->cmd_param[0])
 			child_process(cmd, pip, env);
-		else{
-			close_all_redi(data);
-			destroy_child_process(SUCCESS, env);} // MY HERO //! +rajouter free pour heredoc???
+		else
+			destroy_child_process(SUCCESS, env); // MY HERO //! +rajouter free pour heredoc???
 	}
 	else
 	{
@@ -109,13 +108,16 @@ int	exec(t_data *data)
 
 	tmp = data->cmd;
 	pip = data->pip;
-	if (tmp->skip_cmd == false && (tmp->cmd_param[0]) && cmd_list_len(data->cmd) == 1)
+
+	if (tmp->skip_cmd == false && tmp->cmd_param && tmp->cmd_param[0] && is_builtin(tmp->cmd_param[0]) && cmd_list_len(data->cmd) == 1) //verif tmp->cmd_param pour "<< LIMITER"
 	{
+		printf("=======OKOK-launch-builtin=======\n");
 		launch_builtin(tmp);
 		if (data->exit_status != SUCCESS)
 			return (cleanup(NO_CHANGE, NULL, NO_EXIT, 2));
 		return (SUCCESS);
 	}
+	printf("=======no-launch-builtin=======\n");
 	while (tmp)
 	{
 		if (pipe(pip) == -1)
@@ -137,20 +139,17 @@ int	exec(t_data *data)
 // FEHIM:
 //* corriger appel chemin absolu et executable
 //* revoir comportement builtin // repertoire courant (ASKIP)
-
 //* secu si envp entierement unset
+//* revoir exit status de chaque builtins
+//*corriger cmd_init (// "< infile | wc" ==> cas d'encule)
 
-//! revoir exit status de chaque builtins
+//! faire au propre no such file or directory dans init_commands
+
 //! revoir return ERR malloc...etc dans exec
 
-//! corriger cmd_init (// "< infile | wc" ==> cas d'encule)
+//! cas "<< LIMITER" rajouter heredoc pour sq seule et sans commande
 
-
-	// if (!access(".heredoc.tmp", F_OK))
-	// 	unlink(".heredoc.tmp");
-	// RAJOUTER CA DANS LES FREE DE FIN DE FN
-
+//! RAJOUTER CA DANS LES FREE DE FIN DE FN
+	//! if (!access(".heredoc.tmp", F_OK))
+	//! 	unlink(".heredoc.tmp");
 //? =======================================================
-// OSMANE:
-//! corriger ft_exit (//strtol)
-//! cas signaux si execute dans minishell (// ctrl-C)

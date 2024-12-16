@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   signals.c                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: obouayed <obouayed@student.42.fr>          +#+  +:+       +#+        */
+/*   By: apoet <apoet@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/02 21:11:36 by obouayed          #+#    #+#             */
-/*   Updated: 2024/11/02 22:20:05 by obouayed         ###   ########.fr       */
+/*   Updated: 2024/12/14 17:17:09 by apoet            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,6 +37,7 @@ void	sigint_handler(int sig)
 
 	(void)sig;
 	data = get_data();
+	// Comprendre pq c pas linverse
 	if (data && data->current_pid != 0)
 	{
 		if (kill(data->current_pid, SIGINT) == -1)
@@ -67,5 +68,11 @@ void	sigquit_handler(int sig)
 		ft_putstr_fd("Quit (core dumped)\n", 2);
 		data->current_pid = 0;
 		data->exit_status = 131;
+	}
+	else
+	{
+		rl_on_new_line();   // Reset to a new line
+    rl_replace_line("", 0); // Clear the input line
+    rl_redisplay();     // Redisplay the prompt
 	}
 }

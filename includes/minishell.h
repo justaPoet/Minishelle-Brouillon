@@ -6,7 +6,7 @@
 /*   By: apoet <apoet@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/21 18:03:56 by obouayed          #+#    #+#             */
-/*   Updated: 2024/12/12 17:20:22 by apoet            ###   ########.fr       */
+/*   Updated: 2024/12/15 03:32:51 by apoet            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -51,8 +51,6 @@
 # define ERR_PIPE "Error: pipe failed\n"
 # define ERR_FORK "Error: fork failed\n"
 # define ERR_WAIT "Error: wait failed\n"
-
-
 
 /*
 Structure to store the commands:
@@ -239,7 +237,7 @@ void				free_all_cmd_nodes(t_cmd **cmd_list);
 // gestion_redirections.c
 int					close_all_redi(t_data *data);
 void				close_all_redi_of_each_nodes(t_data *data);
-int					fill_cmd_nodes_redirections(t_cmd *cmd, t_token *token);
+int	fill_cmd_nodes_redirections(t_cmd *cmd, t_token **real_token);
 int					init_file(t_cmd *cmd, char *filename, int type);
 
 /* ************************************************************************** */
@@ -286,6 +284,7 @@ void				initialize_data(t_data **data);
 
 // signals.c
 void				setup_signals(void);
+void				setup_heredoc_signals(void);
 void				sigint_handler(int sig);
 void				sigquit_handler(int sig);
 

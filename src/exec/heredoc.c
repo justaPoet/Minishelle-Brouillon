@@ -43,11 +43,11 @@ int heredoc(t_cmd *cmd, char *limiter)
         return (ERROR); //? OKOK
     if (heredoc_cpy(cmd->infile, limiter) == false)
     {
-        printf("UNLINK-FILE\n\n");
         unlink(".minishell.heredoc.tmp");
         close_all_redi_of_each_nodes(data);
         return (FAILURE); //? OKOK
     }
     unlink(".minishell.heredoc.tmp");
+    printf("\n"); // pas present dans bash posix
     return (SUCCESS);
 }

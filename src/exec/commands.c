@@ -6,7 +6,7 @@
 /*   By: apoet <apoet@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/02 18:43:47 by obouayed          #+#    #+#             */
-/*   Updated: 2024/12/12 22:39:52 by apoet            ###   ########.fr       */
+/*   Updated: 2024/12/15 04:45:10 by apoet            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,10 +22,10 @@ int count_cmd_param(t_token *og_token)
     while (token && token->type != PIPE)
     {
         if (token->type >= 1 && token->type <= 4)
-        {
+        {    
             if (token->next && token->next->type == ARG)
                 i--;
-        }
+        }        
         else
             i++;
         token = token->next;
@@ -47,7 +47,7 @@ char **init_cmd_param(t_token *og_token)
         return (NULL);
     cmd_param = malloc(sizeof(char *) * (i + 1));
     if (!cmd_param)
-        return (print_error(ERR_MALLOC), NULL); //! cleanup
+        return (print_error(ERR_MALLOC), NULL); //! cleanup ERR_MALLOC
     cmd_param[i] = NULL;
     i = 0;
     while (token && token->type != PIPE)
@@ -60,10 +60,10 @@ char **init_cmd_param(t_token *og_token)
                 return (NULL);
         }
         else
-        {
+        {            
             cmd_param[i] = ft_strdup(token->value);
             if (!cmd_param[i])
-                return (print_error(ERR_MALLOC), NULL); //! cleanup
+                return (print_error(ERR_MALLOC), NULL); //! cleanup ERR_MALLOC
             i++;
             token = token->next;
         }
@@ -71,8 +71,36 @@ char **init_cmd_param(t_token *og_token)
     return (cmd_param);
 }
 
+void close_null_sq()
+{
+    t_data * data;
+    t_cmd *tmp;
+    
+    data = get_data();
+    tmp = data->cmd;
+    while (tmp)
+    {
+        if (!tmp->cmd_param)
+        {  
+            if (tmp->infile > -2)
+            {
+                close(tmp->infile);
+                tmp->infile = -2;
+            }
+            if (tmp->outfile > -2)
+            {
+                close(tmp->outfile);
+                tmp->outfile = -2;
+            }
+            tmp->skip_cmd = true;
+        }
+        tmp = tmp->next;
+    }
+}
+
 //*OKOK
-//? Remplit les nœuds de commandes avec des données
+//? Remplit chaque noeud de cmd avec les bonnes redirections et
+//? initialise cmd_param, si besoin.
 int fill_cmd_nodes(t_data *data)
 {
     t_cmd *cmd;
@@ -82,31 +110,36 @@ int fill_cmd_nodes(t_data *data)
     cmd = data->cmd;
     while (token && cmd)
     {
+        printf("first==%s\n", token->value);
         if ((token->type >= 1 && token->type <= 4) && token->next && token->next->type == ARG)
-            if (fill_cmd_nodes_redirections(cmd, token) == ERROR)
+        {   
+            printf("REDI==%s\n", token->value);
+            if (fill_cmd_nodes_redirections(cmd, &token) == ERROR)
                 return(ERROR);
-        if (token && token->type == PIPE)
-        {
-            if (!cmd->cmd_param) //! ne change pas de noeud si pas de cmd trouve
-            {    
-                cmd->skip_cmd = true;
-                // cmd->cmd_param = malloc(sizeof(char *) * 3);
-                // cmd->cmd_param[0] = ft_strdup("");
-                // cmd->cmd_param[1] = ft_strdup("");
-                // cmd->cmd_param[2] = ft_strdup("");
-            }
+        }  
+        if (token->type == PIPE)
             cmd = cmd->next;
-        }
-        if (token && token->type == CMD)
-        {
+        printf("seconde==%s\n", token->value);
+        if (cmd->cmd_param && (token->type == CMD || token->type == ARG) && token->prev == NULL || (token->prev && token->prev->type > 4))
+        {   
+            printf("OKAY OKAY == %s \n", token->value);
+            if (check_command_in_path(token->value) == ERROR && is_builtin(token->value) == false)
+                return(print_error("AUDDminishell: "), print_error(token->value), cleanup(1, ": command not found\n", NO_EXIT, 2), ERROR); //! 
 			cmd->cmd_param = init_cmd_param(token);
 			if (!cmd->cmd_param)
 				return (ERROR); //besoin de free les precedents noeud si deja init
         }
     	token = token->next;
     }
+    close_null_sq();
     return (SUCCESS);
 }
+
+//! FAIRE UNE FN SPECIALE AVEC TOUS LES CAS SPECIAUX 
+//! "< infile < infile"
+//! "< infile cat < infile -e"
+//! "< infile iwqej < infile"
+//! "< infile < infile iwqej"
 
 //*OKOK
 //? Initialise les nœuds de commandes 
@@ -146,44 +179,30 @@ int init_cmd(t_data *data)
         return (ERROR); 
     if (fill_cmd_nodes(data) == ERROR)
         return (ERROR); 
-
-//? test sip_cmd
+    printf("yoooooo bro\n\n");
+// //? test sip_cmd
     // t_cmd * tmp = data->cmd;
-    // printf("1=%s\n", tmp->cmd_param[0]);
-    // printf("1=%s\n", tmp->cmd_param[1]);
-    // printf("1=%s\n", tmp->cmd_param[2]);
-    // tmp = tmp->next;
-    // printf("2=%s\n", tmp->cmd_param[0]);
-    // printf("2=%s\n", tmp->cmd_param[1]);
-    // printf("2=%s\n", tmp->cmd_param[2]);
-    // tmp = tmp->next;
-    // printf("3=%s\n", tmp->cmd_param[0]);
-    // printf("3=%s\n", tmp->cmd_param[1]);
-    // printf("3=%s\n", tmp->cmd_param[2]);
+    //     printf("1=%s\n", tmp->cmd_param[0]);
+    //     printf("1=%s\n", tmp->cmd_param[1]);
+    //     printf("1=%s\n", tmp->cmd_param[2]);
+    //     tmp = tmp->next;
+    //     printf("2=%s\n", tmp->cmd_param[0]);
+    //     printf("2=%s\n", tmp->cmd_param[1]);
+    //     printf("2=%s\n", tmp->cmd_param[2]);
+    //     tmp = tmp->next;
+    //     printf("3=%s\n", tmp->cmd_param[0]);
+    //     printf("3=%s\n", tmp->cmd_param[1]);
+    //     printf("3=%s\n", tmp->cmd_param[2]);
 
-        
+    // free_all_cmd_nodes(&data->cmd);        
+
     return (SUCCESS);
 }
 
+//! "< infile < infile wejinfkejnf" ==> "command not found"
 
 
 
-
-
-// t_cmd * tmp = data->cmd;
-// printf("\n\n1=%s\n", tmp->cmd_param[0]);
-// printf("1=%s\n", tmp->cmd_param[1]);
-// printf("1=%s\n\n", tmp->cmd_param[2]);
-// tmp = tmp->next;
-// printf("2=%s\n", tmp->cmd_param[0]);
-// printf("2=%s\n", tmp->cmd_param[1]);
-// printf("2=%s\n\n", tmp->cmd_param[2]);
-// tmp = tmp->next;
-// printf("3=%s\n", tmp->cmd_param[0]);
-// printf("3=%s\n", tmp->cmd_param[1]);
-// printf("3=%s\n", tmp->cmd_param[2]);
-
-    // free_all_cmd_nodes(&data->cmd);
 
 
 

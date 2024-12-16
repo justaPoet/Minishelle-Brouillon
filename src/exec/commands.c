@@ -6,7 +6,7 @@
 /*   By: apoet <apoet@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/02 18:43:47 by obouayed          #+#    #+#             */
-/*   Updated: 2024/12/15 04:45:10 by apoet            ###   ########.fr       */
+/*   Updated: 2024/12/16 15:51:54 by apoet            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -98,6 +98,23 @@ void close_null_sq()
     }
 }
 
+
+
+bool verif_before_init_cmd_param()
+{
+
+    if (token->type == CMD)
+    {
+        
+    }
+
+
+    
+    printf("OKAY OKAY == %s \n", token->value);
+            if (check_command_in_path(token->value) == ERROR && is_builtin(token->value) == false)
+                return(print_error("AUDDminishell: "), print_error(token->value), cleanup(1, ": command not found\n", NO_EXIT, 2), ERROR); //! 
+}
+
 //*OKOK
 //? Remplit chaque noeud de cmd avec les bonnes redirections et
 //? initialise cmd_param, si besoin.
@@ -110,24 +127,24 @@ int fill_cmd_nodes(t_data *data)
     cmd = data->cmd;
     while (token && cmd)
     {
-        printf("first==%s\n", token->value);
         if ((token->type >= 1 && token->type <= 4) && token->next && token->next->type == ARG)
         {   
-            printf("REDI==%s\n", token->value);
             if (fill_cmd_nodes_redirections(cmd, &token) == ERROR)
                 return(ERROR);
         }  
         if (token->type == PIPE)
             cmd = cmd->next;
-        printf("seconde==%s\n", token->value);
-        if (cmd->cmd_param && (token->type == CMD || token->type == ARG) && token->prev == NULL || (token->prev && token->prev->type > 4))
+        if (token->type == CMD || token->type == ARG)
         {   
-            printf("OKAY OKAY == %s \n", token->value);
-            if (check_command_in_path(token->value) == ERROR && is_builtin(token->value) == false)
-                return(print_error("AUDDminishell: "), print_error(token->value), cleanup(1, ": command not found\n", NO_EXIT, 2), ERROR); //! 
-			cmd->cmd_param = init_cmd_param(token);
-			if (!cmd->cmd_param)
-				return (ERROR); //besoin de free les precedents noeud si deja init
+            // if (token->type == CMD)
+            //     if ()
+			
+            if (verif_before_init_cmd_param() == true)
+            {    
+                cmd->cmd_param = init_cmd_param(token);
+                if (!cmd->cmd_param)
+                    return (ERROR); //besoin de free les precedents noeud si deja init
+            }
         }
     	token = token->next;
     }
